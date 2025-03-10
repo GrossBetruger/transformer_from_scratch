@@ -31,3 +31,20 @@ def test_transformer():
     # the model actually generates more tokens than requested
     # not sure why
     assert len(generated_tokens) >= max_generated_tokens + len(tokenize(text)), "expected at least max_generated_tokens + len(tokenize(text)) tokens"
+
+
+
+def test_readme_example():
+    from transformer_from_scratch.transformer import SimpleTransformer
+
+    # Initialize the transformer
+    vocab_size = get_vocab_size()
+    embed_dim = 64
+    num_heads = 4
+    num_layers = 2
+    model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+
+    # Generate output
+    output = model.generate("let slip the dogs of war" , max_tokens=10)
+    assert len(output) > 0
+    assert output.startswith("let slip the dogs of war")

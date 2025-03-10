@@ -46,24 +46,17 @@ transformer-from-scratch/
 Here's a basic example of how to use the transformer:
 
 ```python
-from transformer_from_scratch.transformer import Transformer
+from transformer_from_scratch.transformer import SimpleTransformer
 
 # Initialize the transformer
-transformer = Transformer(
-    num_layers=6,
-    d_model=512,
-    num_heads=8,
-    d_ff=2048,
-    max_seq_length=100,
-    vocab_size=30000
-)
-
-# Example input tensors (will vary based on your tokenization)
-src_tokens = ...  # Your input tokens
-tgt_tokens = ...  # Your target tokens
+vocab_size = get_vocab_size()
+embed_dim = 64
+num_heads = 4
+num_layers = 2
+model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
 
 # Generate output
-output = transformer(src_tokens, tgt_tokens)
+output = model.generate("let slip the dogs of war" , max_tokens=10)
 ```
 
 ## Components
