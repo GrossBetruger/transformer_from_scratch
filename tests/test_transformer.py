@@ -19,7 +19,13 @@ def test_detokenize_tokenize():
 
 def test_transformer():
     max_length = 128
-    model = SimpleTransformer(vocab_size=get_vocab_size(), embed_dim=128, num_heads=16, num_layers=10, max_length=max_length)
+    model = SimpleTransformer(
+        vocab_size=get_vocab_size(),
+        embed_dim=128,
+        num_heads=16,
+        num_layers=10,
+        max_length=max_length,
+    )
     assert model is not None
 
     text = "Hello, world!"
@@ -30,7 +36,9 @@ def test_transformer():
     generated_tokens = tokenize(generated_text)
     # the model actually generates more tokens than requested
     # not sure why
-    assert len(generated_tokens) >= max_generated_tokens + len(tokenize(text)), "expected at least max_generated_tokens + len(tokenize(text)) tokens"
+    assert len(generated_tokens) >= max_generated_tokens + len(
+        tokenize(text)
+    ), "expected at least max_generated_tokens + len(tokenize(text)) tokens"
 
 
 def test_readme_example():
@@ -44,6 +52,6 @@ def test_readme_example():
     model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
 
     # Generate output
-    output = model.generate("let slip the dogs of war" , max_tokens=10)
+    output = model.generate("let slip the dogs of war", max_tokens=10)
     assert len(output) > 0
     assert output.startswith("let slip the dogs of war")

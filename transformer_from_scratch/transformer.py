@@ -4,20 +4,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 import tiktoken
 
+
 def chunker(seq, size):
-    chunks = [seq[pos:pos + size] for pos in range(0, len(seq), size)]
+    chunks = [seq[pos : pos + size] for pos in range(0, len(seq), size)]
     return [" ".join(c) for c in chunks]
 
 
 def get_shakespeare_text():
-    import  requests
+    import requests
+
     shakespeare_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
     req = requests.get(shakespeare_url)
     return req.text
 
+
 # Check for GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
+
 
 # Simple Transformer Block
 class TransformerBlock(nn.Module):
@@ -28,7 +32,7 @@ class TransformerBlock(nn.Module):
         self.ff = nn.Sequential(
             nn.Linear(embed_dim, 4 * embed_dim),
             nn.ReLU(),
-            nn.Linear(4 * embed_dim, embed_dim)
+            nn.Linear(4 * embed_dim, embed_dim),
         )
         self.norm2 = nn.LayerNorm(embed_dim)
 
@@ -39,22 +43,23 @@ class TransformerBlock(nn.Module):
         x = self.norm2(x + ff_output)
         return x
 
+
 # Simple Transformer Model
 class SimpleTransformer(nn.Module):
     def __init__(self, vocab_size, embed_dim, num_heads, num_layers, max_length=128):
         super().__init__()
         self.token_embedding = nn.Embedding(vocab_size, embed_dim)
         self.positional_embedding = nn.Embedding(max_length, embed_dim)
-        self.layers = nn.ModuleList([
-            TransformerBlock(embed_dim, num_heads) for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [TransformerBlock(embed_dim, num_heads) for _ in range(num_layers)]
+        )
         self.fc_out = nn.Linear(embed_dim, vocab_size)
 
     def forward(self, x):
         positions = torch.arange(0, x.size(1)).unsqueeze(0).to(x.device)
         x = self.token_embedding(x) + self.positional_embedding(positions)
         x = x.permute(1, 0, 2)
-        
+
         for layer in self.layers:
             x = layer(x)
 
@@ -72,17 +77,22 @@ class SimpleTransformer(nn.Module):
             tokens.append(next_token)
         return detokenize(tokens)
 
+
 # Tokenizer using tiktoken
 enc = tiktoken.get_encoding("gpt2")
+
 
 def tokenize(text):
     return enc.encode(text)
 
+
 def detokenize(tokens):
     return enc.decode(tokens)
 
+
 def get_vocab_size():
     return enc.n_vocab
+
 
 # Training Function
 def train(model, data, epochs=10, lr=0.001):
@@ -115,12 +125,13 @@ def save_model(model, path):
 def load_model(model, path):
     model.load_state_dict(torch.load(path))
 
+
 if __name__ == "__main__":
     vocab_size = get_vocab_size()
     embed_dim = 64
     num_heads = 4
     num_layers = 2
-    
+
     models_dir = Path(__file__).parent / "models"
     models_dir.mkdir(exist_ok=True)
     model_path = models_dir / "model.pth"
