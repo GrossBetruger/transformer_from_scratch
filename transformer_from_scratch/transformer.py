@@ -67,15 +67,25 @@ class SimpleTransformer(nn.Module):
         logits = self.fc_out(x)
         return logits
 
-    def generate(self, prompt, max_tokens=20):
+    def generate(self, prompt, max_tokens=20, temperature=1.0):
         self.eval()
         tokens = tokenize(prompt)
         for _ in range(max_tokens):
             tokens_tensor = torch.tensor(tokens).unsqueeze(0).to(device)
-            logits = self.forward(tokens_tensor)
-            next_token = logits[:, -1, :].argmax(dim=-1).item()
+            logits = self.forward(tokens_tensor)[:, -1, :]  # shape: (1, vocab_size)
+
+            # Optionally adjust logits by temperature
+            logits = logits / temperature
+
+            # Convert logits to probabilities
+            probs = F.softmax(logits, dim=-1)
+
+            # Sample from the distribution
+            next_token = torch.multinomial(probs, num_samples=1).item()
+
             tokens.append(next_token)
         return detokenize(tokens)
+
 
 
 # Tokenizer using tiktoken
@@ -143,8 +153,65 @@ if __name__ == "__main__":
         model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
 
     shakespeare = get_shakespeare_text()
-    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1000], 4)]
-    train(model, sample_data, epochs=10, lr=0.001)
+    # sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1000], 4)]
+    # train(model, sample_data, epochs=10, lr=0.001)
+    # save_model(model, model_path)
+    # generated_text = model.generate("Hello", temperature=1)
+    # print("Generated text:", generated_text)
+
+    # Curriculum Learning
+    # 1. Start with a small dataset
+    # 2. Gradually increase the dataset size
+    # 3. Gradually increase chunk size
+    # 4. Gradually increase the learning rate
+
+    num_epochs = 10
+    print(f"curriculum learning 1: (learning rate: {0.001}, chunk size: 2, epochs: 10, dataset size: 100)")
+    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:100], 2)]
+    train(model, sample_data, epochs=num_epochs, lr=0.001)
     save_model(model, model_path)
-    generated_text = model.generate("Hello")
+    generated_text = model.generate("Hello", temperature=1)
+    print()
+    print("Generated text:", generated_text)    
+    print()
+
+    # 2. Gradually increase the dataset size
+    print(f"curriculum learning 2: (learning rate: {0.001}, chunk size: 3, epochs: 10, dataset size: 500)")
+    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:500], 3)]
+    train(model, sample_data, epochs=num_epochs, lr=0.001)
+    save_model(model, model_path)
+    generated_text = model.generate("Hello", temperature=1)
+    print()
     print("Generated text:", generated_text)
+    print()
+
+    # 3. Gradually increase chunk size
+    print(f"curriculum learning 3: (learning rate: {0.001}, chunk size: 4, epochs: 10, dataset size: 1000)")
+    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1000], 4)]
+    train(model, sample_data, epochs=num_epochs, lr=0.001)
+    save_model(model, model_path)
+    generated_text = model.generate("Hello", temperature=1)
+    print()
+    print("Generated text:", generated_text)
+    print()
+
+    # 4. Gradually increase the number of epochs
+    print(f"curriculum learning 4: (learning rate: {0.001}, chunk size: 5, epochs: 10, dataset size: 1200)")
+    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1200], 5)]
+    train(model, sample_data, epochs=num_epochs, lr=0.001)
+    save_model(model, model_path)
+    generated_text = model.generate("Hello", temperature=1)
+    print()
+    print("Generated text:", generated_text)
+    print()
+    # 5. Gradually increase the learning rate
+    print(f"curriculum learning 5: (learning rate: {0.001}, chunk size: 6, epochs: 10, dataset size: 1500)")
+    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1500], 6)]
+    train(model, sample_data, epochs=num_epochs, lr=0.001)
+    save_model(model, model_path)
+    generated_text = model.generate("Hello", temperature=1)
+    print()
+    print("Generated text:", generated_text)
+    print()
+    
+    
