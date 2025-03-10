@@ -1,5 +1,4 @@
 from pathlib import Path
-import requests
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,13 +9,11 @@ def chunker(seq, size):
     return [" ".join(c) for c in chunks]
 
 
-shakespeare_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-req = requests.get(shakespeare_url)
-with open("input.txt", "w") as f:
-    f.write(req.text)
-
-shakespeare = open("input.txt", "r").read()
-print(f"Loaded Shakespeare text with length: {len(shakespeare)}")
+def get_shakespeare_text():
+    import  requests
+    shakespeare_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
+    req = requests.get(shakespeare_url)
+    return req.text
 
 # Check for GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -134,6 +131,7 @@ if __name__ == "__main__":
     else:
         model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
 
+    shakespeare = get_shakespeare_text()
     sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1000], 4)]
     train(model, sample_data, epochs=10, lr=0.001)
     save_model(model, model_path)
