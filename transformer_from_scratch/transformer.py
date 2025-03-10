@@ -176,16 +176,17 @@ def curriculum_learning_step(
         total_steps=total_steps,
     )
     save_model(model, model_path)
-    generated_text = model.generate("Hello", temperature=1)
     print()
-    print("Generated text:", generated_text)
+    for temperature in [0.9, 1, 1.1, 1.2]:
+        generated_text = model.generate("thou", temperature=temperature)
+        print(f"Generated text (temp={temperature}):", generated_text)
     print()
 
 
 if __name__ == "__main__":
     vocab_size = get_vocab_size()
-    embed_dim = 64
-    num_heads = 4
+    embed_dim = 16 # most be divisible by num_heads
+    num_heads = 1
     num_layers = 2
 
     models_dir = Path(__file__).parent / "models"
@@ -194,27 +195,34 @@ if __name__ == "__main__":
     if model_path.exists():
         print(f"Loading model from: {model_path}")
         model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+        model.to(device)
         load_model(model, model_path)
     else:
         model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+        model.to(device)
+    # generate before training
+    for _ in range(10):
+        generated_text = model.generate("thou", temperature=1)
+        print("Generated text (no training):", generated_text)
+        print()
 
     shakespeare = get_shakespeare_text()
 
-    num_epochs = 12
+    num_epochs = 500
     # 1.
-    curriculum_learning_step(model, shakespeare, 2, 100, num_epochs, 0.001, 1)
+    curriculum_learning_step(model, shakespeare, 4, 50, num_epochs, 0.0004, 1)
     # 2.
-    curriculum_learning_step(model, shakespeare, 3, 500, num_epochs, 0.001, 2)
+    # curriculum_learning_step(model, shakespeare, 3, 50_000, num_epochs, 0.001, 2)
     # 3.
-    curriculum_learning_step(model, shakespeare, 4, 1000, num_epochs, 0.001, 3)
-    # 4.
-    curriculum_learning_step(model, shakespeare, 5, 1200, num_epochs, 0.001, 4)
-    # 5.
-    curriculum_learning_step(model, shakespeare, 6, 1500, num_epochs, 0.001, 5)
-    # 6.
-    curriculum_learning_step(model, shakespeare, 7, 2000, num_epochs, 0.001, 6)
-    # 7.
-    curriculum_learning_step(model, shakespeare, 8, 2500, num_epochs, 0.001, 7)
+    # curriculum_learning_step(model, shakespeare, 4, 10000, num_epochs, 0.001, 3)
+    # # 4.
+    # curriculum_learning_step(model, shakespeare, 5, 12000, num_epochs, 0.001, 4)
+    # # 5.
+    # curriculum_learning_step(model, shakespeare, 6, 15000, num_epochs, 0.001, 5)
+    # # 6.
+    # curriculum_learning_step(model, shakespeare, 7, 20000, num_epochs, 0.001, 6)
+    # # 7.
+    # curriculum_learning_step(model, shakespeare, 8, 25000, num_epochs, 0.001, 7)
 
     save_model(model, model_path)
     generated_text = model.generate("Let slip", temperature=1.1)
