@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import tiktoken
 
+import pandas as pd
+
 
 def chunker(seq, size):
     chunks = [seq[pos : pos + size] for pos in range(0, len(seq), size)]
@@ -87,7 +89,6 @@ class SimpleTransformer(nn.Module):
         return detokenize(tokens)
 
 
-
 # Tokenizer using tiktoken
 enc = tiktoken.get_encoding("gpt2")
 
@@ -104,13 +105,25 @@ def get_vocab_size():
     return enc.n_vocab
 
 
-# Training Function
-def train(model, data, epochs=10, lr=0.001):
+def train(model, data, epochs=10, lr=0.001, warmup_steps=500, total_steps=10000):
     model.to(device)
     model.train()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     criterion = nn.CrossEntropyLoss()
 
+    # Learning Rate Scheduler
+    def lr_lambda(current_step):
+        if current_step < warmup_steps:
+            return float(current_step) / float(max(1, warmup_steps))
+        return max(
+            0.0,
+            float(total_steps - current_step)
+            / float(max(1, total_steps - warmup_steps)),
+        )
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
+    global_step = 0
     for epoch in range(epochs):
         total_loss = 0
         for text in data:
@@ -123,9 +136,15 @@ def train(model, data, epochs=10, lr=0.001):
             loss = criterion(logits.view(-1, logits.size(-1)), target_tensor.view(-1))
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             total_loss += loss.item()
+            global_step += 1
+            if global_step >= total_steps:
+                break
         print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(data)}")
+        if global_step >= total_steps:
+            break
 
 
 def save_model(model, path):
@@ -134,6 +153,33 @@ def save_model(model, path):
 
 def load_model(model, path):
     model.load_state_dict(torch.load(path))
+
+
+def curriculum_learning_step(
+    model, data, chunk_size: int, data_size: int, epochs=10, lr=0.001, step=1
+):
+    data = [
+        "".join(x)
+        for x in pd.Series(chunker(shakespeare.split(), chunk_size)).sample(data_size)
+    ]
+    total_steps = len(data) * epochs
+    warmup_steps = total_steps * 0.1
+    print(
+        f"curriculum learning {step}: (learning rate: {lr}, chunk size: {chunk_size}, epochs: {epochs}, dataset size: {len(data)})"
+    )
+    train(
+        model,
+        data,
+        epochs=epochs,
+        lr=lr,
+        warmup_steps=warmup_steps,
+        total_steps=total_steps,
+    )
+    save_model(model, model_path)
+    generated_text = model.generate("Hello", temperature=1)
+    print()
+    print("Generated text:", generated_text)
+    print()
 
 
 if __name__ == "__main__":
@@ -153,65 +199,25 @@ if __name__ == "__main__":
         model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
 
     shakespeare = get_shakespeare_text()
-    # sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1000], 4)]
-    # train(model, sample_data, epochs=10, lr=0.001)
-    # save_model(model, model_path)
-    # generated_text = model.generate("Hello", temperature=1)
-    # print("Generated text:", generated_text)
 
-    # Curriculum Learning
-    # 1. Start with a small dataset
-    # 2. Gradually increase the dataset size
-    # 3. Gradually increase chunk size
-    # 4. Gradually increase the learning rate
+    num_epochs = 12
+    # 1.
+    curriculum_learning_step(model, shakespeare, 2, 100, num_epochs, 0.001, 1)
+    # 2.
+    curriculum_learning_step(model, shakespeare, 3, 500, num_epochs, 0.001, 2)
+    # 3.
+    curriculum_learning_step(model, shakespeare, 4, 1000, num_epochs, 0.001, 3)
+    # 4.
+    curriculum_learning_step(model, shakespeare, 5, 1200, num_epochs, 0.001, 4)
+    # 5.
+    curriculum_learning_step(model, shakespeare, 6, 1500, num_epochs, 0.001, 5)
+    # 6.
+    curriculum_learning_step(model, shakespeare, 7, 2000, num_epochs, 0.001, 6)
+    # 7.
+    curriculum_learning_step(model, shakespeare, 8, 2500, num_epochs, 0.001, 7)
 
-    num_epochs = 10
-    print(f"curriculum learning 1: (learning rate: {0.001}, chunk size: 2, epochs: 10, dataset size: 100)")
-    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:100], 2)]
-    train(model, sample_data, epochs=num_epochs, lr=0.001)
     save_model(model, model_path)
-    generated_text = model.generate("Hello", temperature=1)
-    print()
-    print("Generated text:", generated_text)    
-    print()
-
-    # 2. Gradually increase the dataset size
-    print(f"curriculum learning 2: (learning rate: {0.001}, chunk size: 3, epochs: 10, dataset size: 500)")
-    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:500], 3)]
-    train(model, sample_data, epochs=num_epochs, lr=0.001)
-    save_model(model, model_path)
-    generated_text = model.generate("Hello", temperature=1)
+    generated_text = model.generate("Let slip", temperature=1.1)
     print()
     print("Generated text:", generated_text)
     print()
-
-    # 3. Gradually increase chunk size
-    print(f"curriculum learning 3: (learning rate: {0.001}, chunk size: 4, epochs: 10, dataset size: 1000)")
-    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1000], 4)]
-    train(model, sample_data, epochs=num_epochs, lr=0.001)
-    save_model(model, model_path)
-    generated_text = model.generate("Hello", temperature=1)
-    print()
-    print("Generated text:", generated_text)
-    print()
-
-    # 4. Gradually increase the number of epochs
-    print(f"curriculum learning 4: (learning rate: {0.001}, chunk size: 5, epochs: 10, dataset size: 1200)")
-    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1200], 5)]
-    train(model, sample_data, epochs=num_epochs, lr=0.001)
-    save_model(model, model_path)
-    generated_text = model.generate("Hello", temperature=1)
-    print()
-    print("Generated text:", generated_text)
-    print()
-    # 5. Gradually increase the learning rate
-    print(f"curriculum learning 5: (learning rate: {0.001}, chunk size: 6, epochs: 10, dataset size: 1500)")
-    sample_data = ["".join(x) for x in chunker(shakespeare.split()[:1500], 6)]
-    train(model, sample_data, epochs=num_epochs, lr=0.001)
-    save_model(model, model_path)
-    generated_text = model.generate("Hello", temperature=1)
-    print()
-    print("Generated text:", generated_text)
-    print()
-    
-    
