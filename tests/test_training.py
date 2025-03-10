@@ -6,9 +6,9 @@ from transformer_from_scratch.transformer import get_vocab_size
 def test_training():
     model = SimpleTransformer(
         vocab_size=get_vocab_size(),
-        embed_dim=32,
-        num_heads=16,
-        num_layers=10,
+        embed_dim=24,
+        num_heads=4,
+        num_layers=2,
         max_length=128,
     )
     assert model is not None
