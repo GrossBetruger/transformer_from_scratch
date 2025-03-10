@@ -84,6 +84,9 @@ def tokenize(text):
 def detokenize(tokens):
     return enc.decode(tokens)
 
+def get_vocab_size():
+    return enc.n_vocab
+
 # Training Function
 def train(model, data, epochs=10, lr=0.001):
     model.to(device)
@@ -116,7 +119,7 @@ def load_model(model, path):
     model.load_state_dict(torch.load(path))
 
 if __name__ == "__main__":
-    vocab_size = enc.n_vocab
+    vocab_size = get_vocab_size()
     embed_dim = 64
     num_heads = 4
     num_layers = 2
