@@ -33,7 +33,6 @@ def test_transformer():
     assert len(generated_tokens) >= max_generated_tokens + len(tokenize(text)), "expected at least max_generated_tokens + len(tokenize(text)) tokens"
 
 
-
 def test_readme_example():
     from transformer_from_scratch.transformer import SimpleTransformer
 
