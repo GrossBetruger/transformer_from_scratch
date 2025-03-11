@@ -93,48 +93,6 @@ class SimpleTransformer(nn.Module):
         return self.tokenizer.decode(tokens)
 
 
-def train(model, data, epochs=10, lr=0.001, warmup_steps=500, total_steps=10000):
-    model.to(device)
-    model.train()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
-    criterion = nn.CrossEntropyLoss()
-
-    # Learning Rate Scheduler
-    def lr_lambda(current_step):
-        if current_step < warmup_steps:
-            return float(current_step) / float(max(1, warmup_steps))
-        return max(
-            0.0,
-            float(total_steps - current_step)
-            / float(max(1, total_steps - warmup_steps)),
-        )
-
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
-
-    global_step = 0
-    for epoch in range(epochs):
-        total_loss = 0
-        for text in data:
-            tokens = model.tokenizer.encode(text)
-            input_tensor = torch.tensor(tokens[:-1]).unsqueeze(0).to(device)
-            target_tensor = torch.tensor(tokens[1:]).unsqueeze(0).to(device)
-
-            optimizer.zero_grad()
-            logits = model(input_tensor)
-            loss = criterion(logits.view(-1, logits.size(-1)), target_tensor.view(-1))
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
-
-            total_loss += loss.item()
-            global_step += 1
-            if global_step >= total_steps:
-                break
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(data)}")
-        if global_step >= total_steps:
-            break
-
-
 def save_model(model, path):
     torch.save(model.state_dict(), path)
 
@@ -234,54 +192,3 @@ if __name__ == "__main__":
         generated_text = model.generate("thou", temperature=1)
         print("(after training):", generated_text)
         print()
-    quit()
-
-    models_dir = Path(__file__).parent / "models"
-    models_dir.mkdir(exist_ok=True)
-    model_path = models_dir / "model.pth"
-    if model_path.exists():
-        print(f"Loading model from: {model_path}")
-        model = SimpleTransformer(enc, embed_dim, num_heads, num_layers)
-        model.to(device)
-        load_model(model, model_path)
-    else:
-        model = SimpleTransformer(enc, embed_dim, num_heads, num_layers)
-        model.to(device)
-    # generate before training
-    for _ in range(10):
-        generated_text = model.generate("thou", temperature=1)
-        print("Generated text (no training):", generated_text)
-        print()
-
-    shakespeare = get_shakespeare_text()
-
-    num_epochs = 250
-    # 1.
-    lr = 0.0004
-    curriculum_learning_step(model, shakespeare, 4, 500, num_epochs, lr, 1)
-    curriculum_learning_step(model, shakespeare, 4, 10_000, num_epochs, lr * 0.75, 2)
-    # curriculum_learning_step(model, shakespeare, 4, 50, num_epochs, lr * 0.5, 3)
-    # curriculum_learning_step(model, shakespeare, 4, 50, num_epochs, lr * 0.25, 4)
-    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.125, 5)
-    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.0625, 6)
-    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.03125, 7)
-    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.015625, 8)
-
-    # 2.
-    # curriculum_learning_step(model, shakespeare, 3, 50_000, num_epochs, 0.001, 2)
-    # 3.
-    # curriculum_learning_step(model, shakespeare, 4, 10000, num_epochs, 0.001, 3)
-    # # 4.
-    # curriculum_learning_step(model, shakespeare, 5, 12000, num_epochs, 0.001, 4)
-    # # 5.
-    # curriculum_learning_step(model, shakespeare, 6, 15000, num_epochs, 0.001, 5)
-    # # 6.
-    # curriculum_learning_step(model, shakespeare, 7, 20000, num_epochs, 0.001, 6)
-    # # 7.
-    # curriculum_learning_step(model, shakespeare, 8, 25000, num_epochs, 0.001, 7)
-
-    save_model(model, model_path)
-    generated_text = model.generate("Let slip", temperature=1.1)
-    print()
-    print("Generated text:", generated_text)
-    print()
