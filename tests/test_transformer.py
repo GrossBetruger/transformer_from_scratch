@@ -6,7 +6,6 @@ tokenizer = SimpleTokenizer(get_shakespeare_text().split())
 
 
 def test_transformer():
-    max_length = 128
     embed_dim = 16
     num_heads = 2
     num_layers = 2

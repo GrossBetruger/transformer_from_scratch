@@ -180,9 +180,11 @@ if __name__ == "__main__":
     enc = SimpleTokenizer(raw_data)
     # enc = tiktoken.get_encoding("gpt2")
     model = SimpleTransformer(enc, embed_dim, num_heads, num_layers)
+    model.to(device)
     sequence_length = 4
     sample_raw_data = pd.Series(chunker(raw_data, sequence_length)).sample(1500)
     data = torch.tensor(([enc.encode(x) for x in sample_raw_data]))
+    data = data.to(device)
     for _ in range(10):
         generated_text = model.generate("thou", temperature=1)
         print("(no training):", generated_text)
