@@ -47,16 +47,16 @@ Here's a basic example of how to use the transformer:
 
 ```python
 from transformer_from_scratch.transformer import SimpleTransformer
-
+from transformer_from_scratch.tokenizer import SimpleTokenizer
 # Initialize the transformer
-vocab_size = get_vocab_size()
+tokenizer = SimpleTokenizer(get_shakespeare_text().split())
 embed_dim = 64
 num_heads = 4
 num_layers = 2
-model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+model = SimpleTransformer(tokenizer, embed_dim, num_heads, num_layers)
 
 # Generate output
-output = model.generate("let slip the dogs of war" , max_tokens=10)
+output = model.generate("let slip the dogs of war", max_tokens=10)
 ```
 
 ## Components

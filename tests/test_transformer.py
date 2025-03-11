@@ -29,7 +29,7 @@ def test_transformer():
 
 def test_readme_example():
     from transformer_from_scratch.transformer import SimpleTransformer
-
+    from transformer_from_scratch.tokenizer import SimpleTokenizer
     # Initialize the transformer
     tokenizer = SimpleTokenizer(get_shakespeare_text().split())
     embed_dim = 64
