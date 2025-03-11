@@ -1,31 +1,17 @@
-from transformer_from_scratch.transformer import SimpleTransformer, get_vocab_size
-from pathlib import Path
-from transformer_from_scratch.transformer import tokenize, detokenize
+from transformer_from_scratch.tokenizer import SimpleTokenizer
+from transformer_from_scratch.transformer import SimpleTransformer, get_shakespeare_text
 
 
-def test_tokenize_detokenize():
-    text = "Hello, world!"
-    tokens = tokenize(text)
-    assert len(tokens) > 0
-    detokenized = detokenize(tokens)
-    assert detokenized == text
-
-
-def test_detokenize_tokenize():
-    tokens = [1, 2, 10_000]
-    text = detokenize(tokens)
-    assert tokenize(text) == tokens
+tokenizer = SimpleTokenizer(get_shakespeare_text().split())
 
 
 def test_transformer():
     max_length = 128
-    model = SimpleTransformer(
-        vocab_size=get_vocab_size(),
-        embed_dim=128,
-        num_heads=16,
-        num_layers=10,
-        max_length=max_length,
-    )
+    embed_dim = 16
+    num_heads = 2
+    num_layers = 2
+    tokenizer = SimpleTokenizer(["Hello,", "world!"])
+    model = SimpleTransformer(tokenizer, embed_dim, num_heads, num_layers)
     assert model is not None
 
     text = "Hello, world!"
@@ -33,11 +19,11 @@ def test_transformer():
     generated_text = model.generate(text, max_tokens=max_generated_tokens)
     assert len(generated_text) > 0
     assert generated_text.startswith(text)
-    generated_tokens = tokenize(generated_text)
+    generated_tokens = tokenizer.encode(generated_text)
     # the model actually generates more tokens than requested
     # not sure why
     assert len(generated_tokens) >= max_generated_tokens + len(
-        tokenize(text)
+        tokenizer.encode(text)
     ), "expected at least max_generated_tokens + len(tokenize(text)) tokens"
 
 
@@ -45,11 +31,11 @@ def test_readme_example():
     from transformer_from_scratch.transformer import SimpleTransformer
 
     # Initialize the transformer
-    vocab_size = get_vocab_size()
+    tokenizer = SimpleTokenizer(get_shakespeare_text().split())
     embed_dim = 64
     num_heads = 4
     num_layers = 2
-    model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+    model = SimpleTransformer(tokenizer, embed_dim, num_heads, num_layers)
 
     # Generate output
     output = model.generate("let slip the dogs of war", max_tokens=10)

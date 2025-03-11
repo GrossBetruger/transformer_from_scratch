@@ -6,6 +6,8 @@ import tiktoken
 
 import pandas as pd
 
+from transformer_from_scratch.tokenizer import SimpleTokenizer
+
 
 def chunker(seq, size):
     chunks = [seq[pos : pos + size] for pos in range(0, len(seq), size)]
@@ -48,14 +50,16 @@ class TransformerBlock(nn.Module):
 
 # Simple Transformer Model
 class SimpleTransformer(nn.Module):
-    def __init__(self, vocab_size, embed_dim, num_heads, num_layers, max_length=128):
+    def __init__(self, tokenizer, embed_dim, num_heads, num_layers, max_length=128):
         super().__init__()
-        self.token_embedding = nn.Embedding(vocab_size, embed_dim)
+        self.tokenizer = tokenizer
+        self.vocab_size = tokenizer.n_vocab
+        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim)
         self.positional_embedding = nn.Embedding(max_length, embed_dim)
         self.layers = nn.ModuleList(
             [TransformerBlock(embed_dim, num_heads) for _ in range(num_layers)]
         )
-        self.fc_out = nn.Linear(embed_dim, vocab_size)
+        self.fc_out = nn.Linear(embed_dim, self.vocab_size)
 
     def forward(self, x):
         positions = torch.arange(0, x.size(1)).unsqueeze(0).to(x.device)
@@ -71,7 +75,7 @@ class SimpleTransformer(nn.Module):
 
     def generate(self, prompt, max_tokens=20, temperature=1.0):
         self.eval()
-        tokens = tokenize(prompt)
+        tokens = self.tokenizer.encode(prompt)
         for _ in range(max_tokens):
             tokens_tensor = torch.tensor(tokens).unsqueeze(0).to(device)
             logits = self.forward(tokens_tensor)[:, -1, :]  # shape: (1, vocab_size)
@@ -86,23 +90,7 @@ class SimpleTransformer(nn.Module):
             next_token = torch.multinomial(probs, num_samples=1).item()
 
             tokens.append(next_token)
-        return detokenize(tokens)
-
-
-# Tokenizer using tiktoken
-enc = tiktoken.get_encoding("gpt2")
-
-
-def tokenize(text):
-    return enc.encode(text)
-
-
-def detokenize(tokens):
-    return enc.decode(tokens)
-
-
-def get_vocab_size():
-    return enc.n_vocab
+        return self.tokenizer.decode(tokens)
 
 
 def train(model, data, epochs=10, lr=0.001, warmup_steps=500, total_steps=10000):
@@ -127,7 +115,7 @@ def train(model, data, epochs=10, lr=0.001, warmup_steps=500, total_steps=10000)
     for epoch in range(epochs):
         total_loss = 0
         for text in data:
-            tokens = tokenize(text)
+            tokens = model.tokenizer.encode(text)
             input_tensor = torch.tensor(tokens[:-1]).unsqueeze(0).to(device)
             target_tensor = torch.tensor(tokens[1:]).unsqueeze(0).to(device)
 
@@ -183,22 +171,81 @@ def curriculum_learning_step(
     print()
 
 
+def simple_training_loop(
+    model: SimpleTransformer,
+    data: torch.Tensor,
+    num_epochs: int,
+    batch_size: int,
+    lr: float = 0.001,
+    weight_decay: float = 1e-5,
+):
+
+    for epoch in range(num_epochs):
+        model.train()
+        epoch_loss = 0.0
+        num_batches = 0
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=lr, weight_decay=weight_decay
+        )
+        criterion = nn.CrossEntropyLoss()
+        # Iterate through the dataset in mini-batches
+        for i in range(0, data.size(0), batch_size):
+            batch = data[i : i + batch_size].to(device)
+            # Prepare inputs and targets by shifting the sequence by one token
+            inputs = batch[:, :-1]  # all tokens except the last one
+            targets = batch[:, 1:]  # all tokens except the first one
+
+            optimizer.zero_grad()
+            # Forward pass: logits shape -> (batch_size, seq_len-1, vocab_size)
+            logits = model(inputs)
+            # Reshape logits and targets to compute the loss over all tokens
+            loss = criterion(logits.reshape(-1, model.vocab_size), targets.reshape(-1))
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            num_batches += 1
+
+        avg_loss = epoch_loss / num_batches
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
+
+
 if __name__ == "__main__":
-    vocab_size = get_vocab_size()
-    embed_dim = 16 # most be divisible by num_heads
-    num_heads = 1
+
+    # Tokenizer using tiktoken
+    # enc = tiktoken.get_encoding("gpt2")
+
+    embed_dim = 16  # most be divisible by num_heads
+    num_heads = 2
     num_layers = 2
+    raw_data = get_shakespeare_text().split()
+    enc = SimpleTokenizer(raw_data)
+    # enc = tiktoken.get_encoding("gpt2")
+    model = SimpleTransformer(enc, embed_dim, num_heads, num_layers)
+    sequence_length = 4
+    sample_raw_data = pd.Series(chunker(raw_data, sequence_length)).sample(1500)
+    data = torch.tensor(([enc.encode(x) for x in sample_raw_data]))
+    for _ in range(10):
+        generated_text = model.generate("thou", temperature=1)
+        print("(no training):", generated_text)
+        print()
+    simple_training_loop(model, data, num_epochs=1000, batch_size=10)
+    for _ in range(10):
+        generated_text = model.generate("thou", temperature=1)
+        print("(after training):", generated_text)
+        print()
+    quit()
 
     models_dir = Path(__file__).parent / "models"
     models_dir.mkdir(exist_ok=True)
     model_path = models_dir / "model.pth"
     if model_path.exists():
         print(f"Loading model from: {model_path}")
-        model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+        model = SimpleTransformer(enc, embed_dim, num_heads, num_layers)
         model.to(device)
         load_model(model, model_path)
     else:
-        model = SimpleTransformer(vocab_size, embed_dim, num_heads, num_layers)
+        model = SimpleTransformer(enc, embed_dim, num_heads, num_layers)
         model.to(device)
     # generate before training
     for _ in range(10):
@@ -208,9 +255,18 @@ if __name__ == "__main__":
 
     shakespeare = get_shakespeare_text()
 
-    num_epochs = 500
+    num_epochs = 250
     # 1.
-    curriculum_learning_step(model, shakespeare, 4, 50, num_epochs, 0.0004, 1)
+    lr = 0.0004
+    curriculum_learning_step(model, shakespeare, 4, 500, num_epochs, lr, 1)
+    curriculum_learning_step(model, shakespeare, 4, 10_000, num_epochs, lr * 0.75, 2)
+    # curriculum_learning_step(model, shakespeare, 4, 50, num_epochs, lr * 0.5, 3)
+    # curriculum_learning_step(model, shakespeare, 4, 50, num_epochs, lr * 0.25, 4)
+    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.125, 5)
+    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.0625, 6)
+    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.03125, 7)
+    # curriculum_learning_step(model, shakespeare, 8, 50, num_epochs, lr * 0.015625, 8)
+
     # 2.
     # curriculum_learning_step(model, shakespeare, 3, 50_000, num_epochs, 0.001, 2)
     # 3.

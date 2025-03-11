@@ -11,11 +11,11 @@ class SimpleTokenizer:
         """
         self.vocab = list(SortedSet(vocab))
         self.unk_token = unk_token
-        
+
         # Create mappings from token to id and id to token.
         self.token_to_id = {token: idx for idx, token in enumerate(self.vocab)}
         self.id_to_token = {idx: token for idx, token in enumerate(self.vocab)}
-        
+
         # Optionally add the unknown token if not already in vocab.
         if unk_token not in self.token_to_id:
             unk_id = len(self.token_to_id)
@@ -29,7 +29,7 @@ class SimpleTokenizer:
         Encodes a string into a list of token ids.
         Splits text on whitespace and maps tokens to their corresponding id.
         Tokens not found in the vocabulary are replaced with the unknown token id.
-        
+
         Args:
             text (str): The text to encode.
         Returns:
@@ -39,7 +39,9 @@ class SimpleTokenizer:
         token_ids = []
         for token in tokens:
             # If token is in vocab, use its id; otherwise use the id for unk_token.
-            token_ids.append(self.token_to_id.get(token, self.token_to_id[self.unk_token]))
+            token_ids.append(
+                self.token_to_id.get(token, self.token_to_id[self.unk_token])
+            )
         return token_ids
 
     def decode(self, token_ids):
@@ -50,7 +52,9 @@ class SimpleTokenizer:
         Returns:
             str: The decoded string.
         """
-        tokens = [self.id_to_token.get(token_id, self.unk_token) for token_id in token_ids]
+        tokens = [
+            self.id_to_token.get(token_id, self.unk_token) for token_id in token_ids
+        ]
         return " ".join(tokens)
 
 
@@ -58,12 +62,12 @@ class SimpleTokenizer:
 if __name__ == "__main__":
     vocab = ["king", "queen", "boy", "girl"]
     tokenizer = SimpleTokenizer(vocab)
-    
+
     # Test encoding
     text = "king boy unknown"
     encoded = tokenizer.encode(text)
     print("Encoded:", encoded)  # Output will be something like: [0, 2, <unk_id>]
-    
+
     # Test decoding
     decoded = tokenizer.decode(encoded)
     print("Decoded:", decoded)  # Output: "king boy <UNK>"

@@ -1,8 +1,11 @@
 from transformer_from_scratch.tokenizer import SimpleTokenizer
-from transformer_from_scratch.transformer import SimpleTransformer, get_shakespeare_text
+from transformer_from_scratch.transformer import (
+    SimpleTransformer,
+    get_shakespeare_text,
+    simple_training_loop,
+)
 from sortedcontainers import SortedSet
 import torch
-from torch.nn import functional as F
 
 unk_token_str = "<UNK>"
 
@@ -32,30 +35,16 @@ def test_tokenizer_on_shakespeare():
 
 def test_tokenizer_on_simple_transformer():
     vocab = ["alpha", "beta", "delta", "epsilon"]
-    unk_token = len(vocab)
     tokenizer = SimpleTokenizer(vocab)
     # vocab_size, embed_dim, num_heads, num_layers,
     transformer = SimpleTransformer(
-        vocab_size=tokenizer.n_vocab,
+        tokenizer=tokenizer,
         embed_dim=4,
         num_heads=1,
         num_layers=1,
     )
-    # simple training loop
 
     text = "alpha epsilon epsilon beta alpha beta delta epsilon"
-    tokens = tokenizer.encode(text)
-    input_tensor = torch.tensor(tokens[:-1]).unsqueeze(0)
-    target_tensor = torch.tensor(tokens[1:]).unsqueeze(0) 
-    print(input_tensor.shape)
-    print(target_tensor.shape)
-    optimizer = torch.optim.Adam(transformer.parameters(), lr=0.05)
-    transformer.train()
-    for _epoch in range(10):
-        optimizer.zero_grad()
-        output = transformer(input_tensor)
-        output = output.view(-1, output.size(-1))
-        
-        # loss = F.cross_entropy(output, target_tensor)
-        # loss.backward()
-        # optimizer.step()
+    data = torch.tensor([tokenizer.encode(text)])
+    simple_training_loop(transformer, data, num_epochs=1, batch_size=1)
+    assert "epsilon" in transformer.generate(text, max_tokens=10)
